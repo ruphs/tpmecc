@@ -1,10 +1,9 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { rgbToHex, hexToRgb, createTightRange, calculateColorRange, isPixelInRange } from './colorUtils';
 import ImageCanvas from './components/ImageCanvas';
 import MaskCanvas from './components/MaskCanvas';
 import ColorRangeSliders from './components/ColorRangeSliders';
 import ColorPalette from './components/ColorPalette';
-import ModeSelector from './components/ModeSelector';
 import Instructions from './components/Instructions';
 import ImageUploader from './components/ImageUploader';
 
@@ -219,8 +218,6 @@ const ColorRangePicker = () => {
   
   // Calculate the final mask by combining all masks
   const calculateFinalMask = useCallback((r, g, b) => {
-    let isIncluded = false;
-    
     // Process all masks in order
     // Start with positive masks first for potential early return
     const positiveMasks = masks.filter(mask => mask.type === 'positive');

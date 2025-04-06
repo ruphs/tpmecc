@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useMemo } from 'react';
-import { isPixelInRange } from '../colorUtils';
 
 const MaskCanvas = ({ 
   backgroundImage, 
@@ -66,8 +65,7 @@ const MaskCanvas = ({
     const maskImageData = maskOnlyCtx.getImageData(0, 0, processWidth, processHeight);
     const maskData = maskImageData.data;
     
-    // Process pixels in chunks to avoid blocking the UI
-    const chunkSize = 10000; // Number of pixels to process at once
+    // Process pixels to avoid blocking the UI
     const totalPixels = data.length / 4;
     
     // For small to medium images, process all pixels
