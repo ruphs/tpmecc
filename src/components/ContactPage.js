@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import emailjs from '@emailjs/browser';
 
 const ContactPage = () => {
+  const form = useRef();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -10,7 +12,9 @@ const ContactPage = () => {
   
   const [formStatus, setFormStatus] = useState({
     submitted: false,
-    error: false
+    error: false,
+    loading: false,
+    errorMessage: ''
   });
   
   const handleChange = (e) => {
@@ -23,22 +27,66 @@ const ContactPage = () => {
   
   const handleSubmit = (e) => {
     e.preventDefault();
-    // In a real application, you would send this data to a server
-    console.log('Form submitted:', formData);
     
-    // Simulate successful submission
+    // Set loading state
     setFormStatus({
-      submitted: true,
-      error: false
+      submitted: false,
+      error: false,
+      loading: true,
+      errorMessage: ''
     });
-    
-    // Reset form
-    setFormData({
-      name: '',
-      email: '',
-      message: '',
-      requestType: 'general'
-    });
+
+    // EmailJS configuration
+    // To make this work:
+    // 1. Sign up at https://www.emailjs.com/
+    // 2. Create an Email Service (e.g., Gmail)
+    // 3. Create an Email Template with variables: {{from_name}}, {{from_email}}, {{request_type}}, {{message}}
+    // 4. Replace the placeholders below with your actual IDs
+    const serviceId = 'service_zsorc3g'; // EmailJS service ID
+    const templateId = 'template_z083962'; // EmailJS template ID
+    const publicKey = 'K9euR-pOnUrM8pedQ'; // EmailJS public key
+
+    // Prepare template parameters
+    const templateParams = {
+      to_email: 'nailshak@ucm.es',
+      from_name: formData.name,
+      from_email: formData.email,
+      request_type: formData.requestType,
+      message: formData.message
+    };
+
+    // Send email using EmailJS
+    emailjs.send(serviceId, templateId, templateParams, publicKey)
+      .then((response) => {
+        console.log('Email sent successfully:', response);
+        
+        // Update form status on success
+        setFormStatus({
+          submitted: true,
+          error: false,
+          loading: false,
+          errorMessage: ''
+        });
+        
+        // Reset form
+        setFormData({
+          name: '',
+          email: '',
+          message: '',
+          requestType: 'general'
+        });
+      })
+      .catch((error) => {
+        console.error('Email sending failed:', error);
+        
+        // Update form status on error
+        setFormStatus({
+          submitted: false,
+          error: true,
+          loading: false,
+          errorMessage: 'Failed to send message. Please try again later.'
+        });
+      });
   };
   
   return (
@@ -88,13 +136,19 @@ const ContactPage = () => {
         <div className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-xl font-semibold mb-4">Send a Message</h2>
           
-          {formStatus.submitted ? (
+          {formStatus.submitted && (
             <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
               <p>Thank you for your message! I'll get back to you soon.</p>
             </div>
-          ) : null}
+          )}
           
-          <form onSubmit={handleSubmit}>
+          {formStatus.error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              <p>{formStatus.errorMessage || 'An error occurred. Please try again.'}</p>
+            </div>
+          )}
+          
+          <form ref={form} onSubmit={handleSubmit}>
             <div className="mb-4">
               <label htmlFor="name" className="block text-gray-700 font-medium mb-2">Name</label>
               <input
@@ -152,9 +206,24 @@ const ContactPage = () => {
             
             <button
               type="submit"
-              className="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors"
+              disabled={formStatus.loading}
+              className={`w-full py-2 px-4 rounded-lg transition-colors ${
+                formStatus.loading 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+              }`}
             >
-              Send Message
+              {formStatus.loading ? (
+                <span className="flex items-center justify-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Sending...
+                </span>
+              ) : (
+                'Send Message'
+              )}
             </button>
           </form>
         </div>
