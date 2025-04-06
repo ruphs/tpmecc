@@ -5,6 +5,7 @@
 import PathInterpolator from './PathInterpolator';
 import ColorPicker from './ColorPicker';
 import ColorRangePicker from './ColorRangePicker';
+import PolygonMaskAnalyzer from './PolygonMaskAnalyzer';
 
 // Tool metadata
 const toolsMetadata = [
@@ -31,6 +32,14 @@ const toolsMetadata = [
     component: ColorRangePicker,
     icon: '🎭',
     tags: ['design', 'image processing', 'visualization', 'segmentation']
+  },
+  {
+    id: 'polygon-mask-analyzer',
+    name: 'Polygon Mask Analyzer',
+    description: 'Analyze what percentage of a polygon area is covered by a mask. Upload an image, mask data, and draw a polygon to analyze.',
+    component: PolygonMaskAnalyzer,
+    icon: '📊',
+    tags: ['image processing', 'analysis', 'visualization', 'segmentation']
   },
   // Note: The following tools would need their component files created
   // They are included here as examples of geology-related tools
