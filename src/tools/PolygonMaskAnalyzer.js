@@ -16,6 +16,7 @@ const PolygonMaskAnalyzer = () => {
   // Mask state
   const [masks, setMasks] = useState([]);
   const [maskLoaded, setMaskLoaded] = useState(false);
+  const [combinedMaskImage, setCombinedMaskImage] = useState(null);
   
   // Polygon state
   const [polygon, setPolygon] = useState([]);
@@ -79,9 +80,9 @@ const PolygonMaskAnalyzer = () => {
         // Reset analysis
         setAnalysisResult(null);
         
-        // Draw the mask if image is loaded
+        // Create the combined mask image if background image is loaded
         if (backgroundImage) {
-          drawMask();
+          createCombinedMaskImage(masksData);
         }
       } catch (error) {
         console.error('Error parsing mask data:', error);
@@ -91,15 +92,78 @@ const PolygonMaskAnalyzer = () => {
     reader.readAsText(file);
   };
   
+  // Function to create the combined mask image
+  const createCombinedMaskImage = useCallback((masksData = masks) => {
+    if (!backgroundImage || !masksData || masksData.length === 0) return;
+    
+    // Create a temporary canvas to process the image
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    
+    tempCanvas.width = imageWidth;
+    tempCanvas.height = imageHeight;
+    tempCtx.drawImage(backgroundImage, 0, 0);
+    
+    // Get image data
+    const imageData = tempCtx.getImageData(0, 0, imageWidth, imageHeight);
+    const data = imageData.data;
+    
+    // Create a new canvas for the mask
+    const maskOnlyCanvas = document.createElement('canvas');
+    maskOnlyCanvas.width = imageWidth;
+    maskOnlyCanvas.height = imageHeight;
+    const maskOnlyCtx = maskOnlyCanvas.getContext('2d');
+    
+    // Fill with black background
+    maskOnlyCtx.fillStyle = 'black';
+    maskOnlyCtx.fillRect(0, 0, imageWidth, imageHeight);
+    
+    // Create white pixels for matching colors
+    const maskImageData = maskOnlyCtx.getImageData(0, 0, imageWidth, imageHeight);
+    const maskData = maskImageData.data;
+    
+    // Calculate the final mask
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      
+      // Check if pixel is included by any positive mask and not excluded by any negative mask
+      let includedByPositive = false;
+      let excludedByNegative = false;
+      
+      for (const mask of masksData) {
+        if (mask.type === 'positive' && isPixelInRange(r, g, b, mask.range)) {
+          includedByPositive = true;
+        } else if (mask.type === 'negative' && isPixelInRange(r, g, b, mask.range)) {
+          excludedByNegative = true;
+          break;
+        }
+      }
+      
+      if (includedByPositive && !excludedByNegative) {
+        // Set pixel to white in the mask
+        maskData[i] = 255;     // R
+        maskData[i + 1] = 255; // G
+        maskData[i + 2] = 255; // B
+        maskData[i + 3] = 255; // A
+      }
+    }
+    
+    // Put the mask data back to the canvas
+    maskOnlyCtx.putImageData(maskImageData, 0, 0);
+    
+    // Store the combined mask image
+    setCombinedMaskImage(maskOnlyCanvas);
+  }, [backgroundImage, imageWidth, imageHeight, masks]);
+  
   // Reset view
   const resetView = () => {
     setZoomLevel(1);
     setPanOffset({ x: 0, y: 0 });
     drawImage();
     drawPolygon();
-    if (maskLoaded) {
-      drawMask();
-    }
+    drawMask();
   };
   
   // Reset polygon
@@ -204,73 +268,16 @@ const PolygonMaskAnalyzer = () => {
   // Draw the mask on the canvas
   const drawMask = useCallback(() => {
     const canvas = maskCanvasRef.current;
-    if (!canvas || !backgroundImage || !masks || masks.length === 0) return;
+    if (!canvas || !combinedMaskImage) return;
     
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Create a temporary canvas to process the image
-    const tempCanvas = document.createElement('canvas');
-    const tempCtx = tempCanvas.getContext('2d');
-    
-    tempCanvas.width = imageWidth;
-    tempCanvas.height = imageHeight;
-    tempCtx.drawImage(backgroundImage, 0, 0);
-    
-    // Get image data
-    const imageData = tempCtx.getImageData(0, 0, imageWidth, imageHeight);
-    const data = imageData.data;
-    
-    // Create a new canvas for the mask
-    const maskOnlyCanvas = document.createElement('canvas');
-    maskOnlyCanvas.width = imageWidth;
-    maskOnlyCanvas.height = imageHeight;
-    const maskOnlyCtx = maskOnlyCanvas.getContext('2d');
-    
-    // Fill with black background
-    maskOnlyCtx.fillStyle = 'black';
-    maskOnlyCtx.fillRect(0, 0, imageWidth, imageHeight);
-    
-    // Create white pixels for matching colors
-    const maskImageData = maskOnlyCtx.getImageData(0, 0, imageWidth, imageHeight);
-    const maskData = maskImageData.data;
-    
-    // Calculate the final mask
-    for (let i = 0; i < data.length; i += 4) {
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      
-      // Check if pixel is included by any positive mask and not excluded by any negative mask
-      let includedByPositive = false;
-      let excludedByNegative = false;
-      
-      for (const mask of masks) {
-        if (mask.type === 'positive' && isPixelInRange(r, g, b, mask.range)) {
-          includedByPositive = true;
-        } else if (mask.type === 'negative' && isPixelInRange(r, g, b, mask.range)) {
-          excludedByNegative = true;
-          break;
-        }
-      }
-      
-      if (includedByPositive && !excludedByNegative) {
-        // Set pixel to white in the mask
-        maskData[i] = 255;     // R
-        maskData[i + 1] = 255; // G
-        maskData[i + 2] = 255; // B
-        maskData[i + 3] = 255; // A
-      }
-    }
-    
-    // Put the mask data back to the canvas
-    maskOnlyCtx.putImageData(maskImageData, 0, 0);
     
     // Draw the mask on the canvas with zoom and pan
     ctx.save();
     ctx.translate(panOffset.x, panOffset.y);
     ctx.scale(zoomLevel, zoomLevel);
-    ctx.drawImage(maskOnlyCanvas, 0, 0);
+    ctx.drawImage(combinedMaskImage, 0, 0);
     ctx.restore();
     
     // Draw mask indicator
@@ -279,7 +286,7 @@ const PolygonMaskAnalyzer = () => {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     ctx.fillText(`Masks: ${masks.length}`, 10, 10);
-  }, [backgroundImage, imageWidth, imageHeight, masks, zoomLevel, panOffset]);
+  }, [combinedMaskImage, masks.length, zoomLevel, panOffset]);
   
   // Handle canvas mouse events for polygon drawing - optimized version
   const handleCanvasMouseDown = useCallback((e) => {
@@ -372,7 +379,7 @@ const PolygonMaskAnalyzer = () => {
   
   // Function to analyze the polygon
   const analyzePolygon = useCallback(() => {
-    if (!backgroundImage || !maskLoaded || polygon.length < 3) {
+    if (!backgroundImage || !maskLoaded || polygon.length < 3 || !combinedMaskImage) {
       return;
     }
     
@@ -397,66 +404,12 @@ const PolygonMaskAnalyzer = () => {
     // Get polygon data
     const polygonData = polygonCtx.getImageData(0, 0, imageWidth, imageHeight).data;
     
-    // Create a temporary canvas to draw the mask
-    const maskCanvas = document.createElement('canvas');
-    maskCanvas.width = imageWidth;
-    maskCanvas.height = imageHeight;
-    const maskCtx = maskCanvas.getContext('2d');
-    
-    // Draw the image
-    maskCtx.drawImage(backgroundImage, 0, 0);
-    
-    // Get image data
-    const imageData = maskCtx.getImageData(0, 0, imageWidth, imageHeight);
-    const data = imageData.data;
-    
-    // Create a new canvas for the mask
-    const maskOnlyCanvas = document.createElement('canvas');
-    maskOnlyCanvas.width = imageWidth;
-    maskOnlyCanvas.height = imageHeight;
-    const maskOnlyCtx = maskOnlyCanvas.getContext('2d');
-    
-    // Fill with black background
-    maskOnlyCtx.fillStyle = 'black';
-    maskOnlyCtx.fillRect(0, 0, imageWidth, imageHeight);
-    
-    // Create white pixels for matching colors
-    const maskImageData = maskOnlyCtx.getImageData(0, 0, imageWidth, imageHeight);
-    const maskData = maskImageData.data;
-    
-    // Calculate the final mask
-    for (let i = 0; i < data.length; i += 4) {
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      
-      // Check if pixel is included by any positive mask and not excluded by any negative mask
-      let includedByPositive = false;
-      let excludedByNegative = false;
-      
-      for (const mask of masks) {
-        if (mask.type === 'positive' && isPixelInRange(r, g, b, mask.range)) {
-          includedByPositive = true;
-        } else if (mask.type === 'negative' && isPixelInRange(r, g, b, mask.range)) {
-          excludedByNegative = true;
-          break;
-        }
-      }
-      
-      if (includedByPositive && !excludedByNegative) {
-        // Set pixel to white in the mask
-        maskData[i] = 255;     // R
-        maskData[i + 1] = 255; // G
-        maskData[i + 2] = 255; // B
-        maskData[i + 3] = 255; // A
-      }
-    }
-    
-    // Put the mask data back to the canvas
-    maskOnlyCtx.putImageData(maskImageData, 0, 0);
-    
-    // Get mask data
-    const finalMaskData = maskOnlyCtx.getImageData(0, 0, imageWidth, imageHeight).data;
+    // Get mask data from the combined mask image
+    const tempCtx = document.createElement('canvas').getContext('2d');
+    tempCtx.canvas.width = imageWidth;
+    tempCtx.canvas.height = imageHeight;
+    tempCtx.drawImage(combinedMaskImage, 0, 0);
+    const finalMaskData = tempCtx.getImageData(0, 0, imageWidth, imageHeight).data;
     
     // Count pixels
     let totalPolygonPixels = 0;
@@ -485,7 +438,7 @@ const PolygonMaskAnalyzer = () => {
       maskedPolygonPixels,
       percentage: percentage.toFixed(2)
     });
-  }, [backgroundImage, imageHeight, imageWidth, maskLoaded, masks, polygon]);
+  }, [backgroundImage, imageHeight, imageWidth, maskLoaded, polygon, combinedMaskImage]);
   
   // Complete polygon and analyze
   const completePolygon = useCallback(() => {
@@ -528,14 +481,25 @@ const PolygonMaskAnalyzer = () => {
     handleContextMenu
   ]);
   
-  // Combined effect to redraw everything when needed
+  // Effect to create combined mask image when background image or masks change
+  useEffect(() => {
+    if (backgroundImage && masks.length > 0) {
+      createCombinedMaskImage();
+    }
+  }, [backgroundImage, masks, createCombinedMaskImage]);
+  
+  // Effect to redraw image and polygon when needed
   useEffect(() => {
     drawImage();
     drawPolygon();
-    if (maskLoaded) {
+  }, [drawImage, drawPolygon, zoomLevel, panOffset, polygon]);
+  
+  // Effect to redraw mask when needed
+  useEffect(() => {
+    if (combinedMaskImage) {
       drawMask();
     }
-  }, [drawImage, drawPolygon, drawMask, maskLoaded, zoomLevel, panOffset, polygon]);
+  }, [drawMask, combinedMaskImage, zoomLevel, panOffset]);
   
   return (
     <div className="p-4 border rounded-lg bg-white shadow">
