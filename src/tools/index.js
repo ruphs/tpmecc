@@ -4,6 +4,7 @@
 
 import PathInterpolator from './PathInterpolator';
 import ColorPicker from './ColorPicker';
+import ColorRangePicker from './ColorRangePicker';
 
 // Tool metadata
 const toolsMetadata = [
@@ -22,6 +23,14 @@ const toolsMetadata = [
     component: ColorPicker,
     icon: '🎨',
     tags: ['design', 'geology', 'visualization']
+  },
+  {
+    id: 'color-range-picker',
+    name: 'Color Range Picker',
+    description: 'Select color ranges from images and create masks based on RGB values. Useful for image segmentation and analysis.',
+    component: ColorRangePicker,
+    icon: '🎭',
+    tags: ['design', 'image processing', 'visualization', 'segmentation']
   },
   // Note: The following tools would need their component files created
   // They are included here as examples of geology-related tools
