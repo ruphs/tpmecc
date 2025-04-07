@@ -39,7 +39,7 @@ const MaskCanvas = ({
     // For mask calculation, we can downsample very large images
     // but keep a reasonable resolution for display quality
     const maxDimension = Math.max(imageWidth, imageHeight);
-    const downsampleFactor = maxDimension > 2000 ? Math.floor(maxDimension / 2000) : 1;
+    const downsampleFactor = maxDimension > 2000 ? Math.ceil(maxDimension / 2000) : 1;
     const processWidth = Math.floor(imageWidth / downsampleFactor);
     const processHeight = Math.floor(imageHeight / downsampleFactor);
     
@@ -69,7 +69,7 @@ const MaskCanvas = ({
     const totalPixels = data.length / 4;
     
     // For small to medium images, process all pixels
-    if (totalPixels < 250000) {
+    if (totalPixels < 500000) {
       for (let i = 0; i < data.length; i += 4) {
         const r = data[i];
         const g = data[i + 1];
@@ -88,7 +88,7 @@ const MaskCanvas = ({
       }
     } else {
       // For larger images, use a smaller sample rate to maintain quality
-      const sampleRate = Math.max(1, Math.floor(Math.sqrt(totalPixels / 250000)));
+      const sampleRate = Math.max(1, Math.ceil(Math.sqrt(totalPixels / 500000)));
       
       for (let y = 0; y < processHeight; y += sampleRate) {
         for (let x = 0; x < processWidth; x += sampleRate) {

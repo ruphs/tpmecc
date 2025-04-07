@@ -165,10 +165,17 @@ const ColorRangePicker = () => {
     const file = e.target.files[0];
     if (!file) return;
     
+    // Show loading indicator or message for large files
+    if (file.size > 5 * 1024 * 1024) { // 5MB
+      alert("Loading large image. This may take a moment...");
+    }
+    
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
+        console.log(`Image loaded: ${img.width}x${img.height}`);
+        
         setBackgroundImage(img);
         setImageWidth(img.width);
         setImageHeight(img.height);
@@ -186,8 +193,19 @@ const ColorRangePicker = () => {
         setZoomLevel(fitZoom);
         setPanOffset({ x: centerX, y: centerY });
       };
+      
+      // Add error handling
+      img.onerror = () => {
+        alert("Error loading image. Please try a different file.");
+      };
+      
       img.src = event.target.result;
     };
+    
+    reader.onerror = () => {
+      alert("Error reading file. Please try again.");
+    };
+    
     reader.readAsDataURL(file);
   };
   

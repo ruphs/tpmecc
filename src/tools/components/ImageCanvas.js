@@ -59,14 +59,42 @@ const ImageCanvas = ({
       // Check if click is within image bounds
       if (imageX >= 0 && imageX < imageWidth && imageY >= 0 && imageY < imageHeight) {
         // Create a temporary canvas to get the pixel color
+        // For very large images, we'll use a more efficient approach
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
-        tempCanvas.width = imageWidth;
-        tempCanvas.height = imageHeight;
-        tempCtx.drawImage(backgroundImage, 0, 0);
         
-        // Get pixel data
-        const pixelData = tempCtx.getImageData(Math.floor(imageX), Math.floor(imageY), 1, 1).data;
+        // For large images, we'll create a smaller canvas with just the region we need
+        let pixelData;
+        
+        if (imageWidth > 3000 || imageHeight > 3000) {
+          // Create a small section around the clicked point
+          const sectionSize = 10;
+          const sectionX = Math.max(0, Math.floor(imageX) - Math.floor(sectionSize/2));
+          const sectionY = Math.max(0, Math.floor(imageY) - Math.floor(sectionSize/2));
+          
+          tempCanvas.width = sectionSize;
+          tempCanvas.height = sectionSize;
+          
+          // Draw just that section
+          tempCtx.drawImage(
+            backgroundImage, 
+            sectionX, sectionY, sectionSize, sectionSize,
+            0, 0, sectionSize, sectionSize
+          );
+          
+          // Get pixel data - adjust coordinates to the section
+          const localX = Math.floor(imageX) - sectionX;
+          const localY = Math.floor(imageY) - sectionY;
+          pixelData = tempCtx.getImageData(localX, localY, 1, 1).data;
+        } else {
+          // For smaller images, use the original approach
+          tempCanvas.width = imageWidth;
+          tempCanvas.height = imageHeight;
+          tempCtx.drawImage(backgroundImage, 0, 0);
+          
+          // Get pixel data
+          pixelData = tempCtx.getImageData(Math.floor(imageX), Math.floor(imageY), 1, 1).data;
+        }
         const r = pixelData[0];
         const g = pixelData[1];
         const b = pixelData[2];
