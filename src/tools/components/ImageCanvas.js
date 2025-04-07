@@ -58,49 +58,61 @@ const ImageCanvas = ({
       
       // Check if click is within image bounds
       if (imageX >= 0 && imageX < imageWidth && imageY >= 0 && imageY < imageHeight) {
-        // Create a temporary canvas to get the pixel color
-        // For very large images, we'll use a more efficient approach
-        const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
-        
-        // For large images, we'll create a smaller canvas with just the region we need
-        let pixelData;
-        
-        if (imageWidth > 3000 || imageHeight > 3000) {
-          // Create a small section around the clicked point
-          const sectionSize = 10;
+        try {
+          // Create a temporary canvas to get the pixel color
+          const tempCanvas = document.createElement('canvas');
+          const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+          
+          // For all images, use the more efficient approach with a small section
+          // This works better for very large images
+          const sectionSize = 10; // Small section around the clicked point
           const sectionX = Math.max(0, Math.floor(imageX) - Math.floor(sectionSize/2));
           const sectionY = Math.max(0, Math.floor(imageY) - Math.floor(sectionSize/2));
           
-          tempCanvas.width = sectionSize;
-          tempCanvas.height = sectionSize;
+          // Ensure we don't go out of bounds
+          const actualSectionWidth = Math.min(sectionSize, imageWidth - sectionX);
+          const actualSectionHeight = Math.min(sectionSize, imageHeight - sectionY);
+          
+          if (actualSectionWidth <= 0 || actualSectionHeight <= 0) {
+            console.error("Invalid section dimensions:", { sectionX, sectionY, actualSectionWidth, actualSectionHeight });
+            return;
+          }
+          
+          tempCanvas.width = actualSectionWidth;
+          tempCanvas.height = actualSectionHeight;
           
           // Draw just that section
           tempCtx.drawImage(
             backgroundImage, 
-            sectionX, sectionY, sectionSize, sectionSize,
-            0, 0, sectionSize, sectionSize
+            sectionX, sectionY, actualSectionWidth, actualSectionHeight,
+            0, 0, actualSectionWidth, actualSectionHeight
           );
           
           // Get pixel data - adjust coordinates to the section
-          const localX = Math.floor(imageX) - sectionX;
-          const localY = Math.floor(imageY) - sectionY;
-          pixelData = tempCtx.getImageData(localX, localY, 1, 1).data;
-        } else {
-          // For smaller images, use the original approach
-          tempCanvas.width = imageWidth;
-          tempCanvas.height = imageHeight;
-          tempCtx.drawImage(backgroundImage, 0, 0);
+          const localX = Math.min(Math.floor(imageX) - sectionX, actualSectionWidth - 1);
+          const localY = Math.min(Math.floor(imageY) - sectionY, actualSectionHeight - 1);
           
-          // Get pixel data
-          pixelData = tempCtx.getImageData(Math.floor(imageX), Math.floor(imageY), 1, 1).data;
+          // Ensure coordinates are valid
+          if (localX < 0 || localY < 0 || localX >= actualSectionWidth || localY >= actualSectionHeight) {
+            console.error("Invalid local coordinates:", { localX, localY, actualSectionWidth, actualSectionHeight });
+            return;
+          }
+          
+          const pixelData = tempCtx.getImageData(localX, localY, 1, 1).data;
+          
+          const r = pixelData[0];
+          const g = pixelData[1];
+          const b = pixelData[2];
+          
+          console.log(`Picked color at (${Math.floor(imageX)}, ${Math.floor(imageY)}): RGB(${r}, ${g}, ${b})`);
+          
+          // Call the color pick callback
+          onColorPick(r, g, b);
+        } catch (error) {
+          console.error("Error picking color:", error, {
+            imageX, imageY, imageWidth, imageHeight
+          });
         }
-        const r = pixelData[0];
-        const g = pixelData[1];
-        const b = pixelData[2];
-        
-        // Call the color pick callback
-        onColorPick(r, g, b);
       }
     };
     
@@ -181,6 +193,9 @@ const ImageCanvas = ({
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
+    // Log image information for debugging
+    console.log(`Drawing image: ${imageWidth}x${imageHeight} with zoom: ${zoomLevel}`);
+    
     // Save the current transformation matrix
     ctx.save();
     
@@ -188,8 +203,24 @@ const ImageCanvas = ({
     ctx.translate(panOffset.x, panOffset.y);
     ctx.scale(zoomLevel, zoomLevel);
     
-    // Draw background image
-    ctx.drawImage(backgroundImage, 0, 0);
+    // Draw background image - ensure we're using the correct dimensions
+    try {
+      // Use explicit source and destination parameters to ensure proper rendering
+      ctx.drawImage(
+        backgroundImage, 
+        0, 0, imageWidth, imageHeight,  // Source rectangle
+        0, 0, imageWidth, imageHeight   // Destination rectangle
+      );
+    } catch (error) {
+      console.error("Error drawing image:", error, {
+        imageWidth, imageHeight, zoomLevel, panOffset
+      });
+      
+      // Draw error message
+      ctx.fillStyle = 'red';
+      ctx.font = '20px Arial';
+      ctx.fillText('Error drawing image', 10, 50);
+    }
     
     // Restore the transformation matrix
     ctx.restore();

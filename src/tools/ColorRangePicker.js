@@ -176,33 +176,51 @@ const ColorRangePicker = () => {
       img.onload = () => {
         console.log(`Image loaded: ${img.width}x${img.height}`);
         
+        // Validate image dimensions
+        if (img.width <= 0 || img.height <= 0) {
+          alert("Invalid image dimensions. Please try a different image.");
+          return;
+        }
+        
+        // Reset any previous masks when loading a new image
+        resetMasks();
+        
         setBackgroundImage(img);
         setImageWidth(img.width);
         setImageHeight(img.height);
         
         // Auto-fit the image to the canvas
         // Calculate the zoom level to fit the image
-        const scaleX = 800 / img.width; // Using updated canvas width
-        const scaleY = 600 / img.height; // Using updated canvas height
+        const canvasWidth = 800; // Canvas width
+        const canvasHeight = 600; // Canvas height
+        
+        // Ensure we don't divide by zero
+        const scaleX = img.width > 0 ? canvasWidth / img.width : 1;
+        const scaleY = img.height > 0 ? canvasHeight / img.height : 1;
+        
         const fitZoom = Math.min(scaleX, scaleY) * 0.9; // 90% of fit to leave some margin
         
         // Calculate center position
-        const centerX = (800 - img.width * fitZoom) / 2;
-        const centerY = (600 - img.height * fitZoom) / 2;
+        const centerX = (canvasWidth - img.width * fitZoom) / 2;
+        const centerY = (canvasHeight - img.height * fitZoom) / 2;
+        
+        console.log(`Setting zoom: ${fitZoom}, pan: (${centerX}, ${centerY})`);
         
         setZoomLevel(fitZoom);
         setPanOffset({ x: centerX, y: centerY });
       };
       
       // Add error handling
-      img.onerror = () => {
+      img.onerror = (error) => {
+        console.error("Image loading error:", error);
         alert("Error loading image. Please try a different file.");
       };
       
       img.src = event.target.result;
     };
     
-    reader.onerror = () => {
+    reader.onerror = (error) => {
+      console.error("File reading error:", error);
       alert("Error reading file. Please try again.");
     };
     
